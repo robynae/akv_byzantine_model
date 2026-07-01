@@ -64,9 +64,7 @@ class AKV:
         self,
         belief_state: list[list[float]],
         influence_graph: list[list[float]],
-        update_function: Callable[
-            [list[list[float]], list[list[float]]], list[list[float]]
-        ],
+        update_function,
     ):
         self.belief_state = np.array(belief_state)
         self.influence_graph = np.array(influence_graph)
@@ -135,10 +133,10 @@ class AKV:
                 belief_array, bins=k, range=(0, 1), density=False
             )
             y = [bin_edges[i] + (1 / k) / 2 for i in range(k)]
-            pi = pi / np.sum(pi)
+            pi = pi / sum(pi)
 
-            return K * np.sum(
-                np.sum(
+            return K * sum(
+                sum(
                     np.power(pi[i], 1 + alpha) * pi[j] * np.abs(y[i] - y[j])
                     for j in range(k)
                 )
@@ -158,7 +156,7 @@ class InfluenceGraphs:
     def clique(num_agents: int, influence: float = 1) -> list[list[float]]:
         """Creates a clique influence graph.
         
-        The clique influence graph $\mathcal{I}^{clique}$ represents an idealized
+        The clique influence graph $\\mathcal{I}^{clique}$ represents an idealized
         totally connected social network.
 
         Args:
@@ -183,7 +181,7 @@ class InfluenceGraphs:
     def circular(num_agents: int, influence: float = 0.5) -> list[list[float]]:
         """Creates a circular influence graph.
         
-        The circular influence graph $\mathcal{I}^{clique}$ represents a social network
+        The circular influence graph $\\mathcal{I}^{clique}$ represents a social network
         in which agents can be organized in a circle in such a way each agent is only
         influenced by its predecessor and only influences its successor.
 
@@ -213,7 +211,7 @@ class InfluenceGraphs:
     ) -> list[list[float]]:
         """Creates a faintly communicating influence graph.
         
-        The faintly communicating influence graph $\mathcal{I}^{faint}$ represents a
+        The faintly communicating influence graph $\\mathcal{I}^{faint}$ represents a
         social network divided into two groups that evolve mostly separately, with only
         faint communication between them. More precisely, agents from within the same
         group influence each other much more strongly than from different groups.
@@ -246,7 +244,7 @@ class InfluenceGraphs:
     def disconnected(num_agents: int, influence: float = 0.5) -> list[list[float]]:
         """Creates a disconnected influence graph.
         
-        The disconnected influence graph $\mathcal{I}^{disc}$ represents a social
+        The disconnected influence graph $\\mathcal{I}^{disc}$ represents a social
         network sharply divided into two groups in such a way that agents with the same
         group can considerably influence each other, just not all agents in the other
         group.
@@ -272,7 +270,7 @@ class InfluenceGraphs:
     ) -> list[list[float]]:
         """Creates a malleable influencers influence graph.
         
-        The malleable influencers influence graph $\mathcal{I}^{malleable}$ represents a
+        The malleable influencers influence graph $\\mathcal{I}^{malleable}$ represents a
         social network in which two agents have a strong influence on every other agent,
         but are barely influenced by anyone else.
 
@@ -319,18 +317,18 @@ class InfluenceGraphs:
     ) -> list[list[float]]:
         """Creates an unrelenting influencers influence graph.
         
-        The unrelenting influencers influence graph $\mathcal{I}^{unrel}$ represents a
+        The unrelenting influencers influence graph $\\mathcal{I}^{unrel}$ represents a
         scenario in which two agents (say, $0$ and $n - 1$) exert a significantly
         stronger influence on every other agent than those other agents have among
         themselves.
 
         Args:
             num_agents (int): Number of agents.
-            influencer_1_influence (float, optional): Influence that agent 0 has on \
+            influencer_1_influence (float, optional): Influence that agent 0 has on 
                 other agents. Defaults to 0.6.
-            influencer_2_influence (float, optional): Influence that agents n - 1 has \
+            influencer_2_influence (float, optional): Influence that agents n - 1 has 
                 on other agents. Defaults to 0.6.
-            other_agents_influence (float, optional): Influence that the other agents \
+            other_agents_influence (float, optional): Influence that the other agents 
                 have on each other. Defaults to 0.1.
 
         Returns:
@@ -478,7 +476,7 @@ class UpdateFunctions:
             a_i = [
                 j for j in range(len(influence_graph[i])) if influence_graph[j][i] > 0
             ]
-            return belief_array[i] + (1 / len(a_i)) * np.sum(
+            return belief_array[i] + (1 / len(a_i)) * sum(
                 influence_graph[j][i] * (belief_array[j] - belief_array[i])
                 for j in a_i
             )
@@ -487,6 +485,35 @@ class UpdateFunctions:
             [next_b(i, belief_array) for i in range(len(belief_array))]
             for belief_array in belief_state
         ]
+    
+    @staticmethod
+    def byzantine_classic(
+        belief_state: list[list[float]], influence_graph: list[list[float]], byzantine_index: int, p: float):
+
+            def deceive(j, belief_array, belief_score):
+                if j == byzantine_index:
+                    if(belief_score < p):
+                        return 1
+                    elif(belief_score > p):
+                        return 0
+                    else: 
+                        return p
+                return belief_array[j]
+            
+            def next_b(i, belief_array):
+                a_i = [
+                    j for j in range(len(influence_graph[i])) if influence_graph[j][i] > 0
+                ]
+                return belief_array[i] + (1/ len(a_i)) * sum(
+                    influence_graph[j][i] * (deceive(j, belief_array, belief_array[i]) - belief_array[i])
+                    for j in a_i
+                )
+            
+            return [
+                [next_b(i, belief_array) for i in range(len(belief_array))]
+                for belief_array in belief_state
+            ]
+
 
     @staticmethod
     def confirmation_bias(
@@ -507,7 +534,7 @@ class UpdateFunctions:
             a_i = [
                 j for j in range(len(influence_graph[i])) if influence_graph[j][i] > 0
             ]
-            return belief_array[i] + (1 / len(a_i)) * np.sum(
+            return belief_array[i] + (1 / len(a_i)) * sum(
                 (1 - np.abs(belief_array[j] - belief_array[i]))
                 * influence_graph[j][i]
                 * (belief_array[j] - belief_array[i])
