@@ -147,6 +147,37 @@ class AKV:
             [polarization(belief_state[i]) for belief_state in self.states]
             for i in range(self.domain_size)
         ]
+    def get_belief_states(num_of_agents):
+        return []
+    
+    def range_of_value(self, belief_array: list[float], influence_graph: list[list[float]]):
+        n = len(belief_array)
+        results = []
+
+        for i in range(n):
+            minUpdate = 0
+            maxUpdate = 0
+            a_i = [j for j in range(len(influence_graph)) if influence_graph[j][i] > 0]
+            for j in a_i:
+                a_j = [k for k in range(len(influence_graph)) if influence_graph[k][j] > 0]
+                for k in a_j:
+                    if influence_graph[k][i] > 0:
+                        minUpdate += belief_array[j] + (1 / len(a_j)) * sum(
+                                     (1 - np.abs(belief_array[k] - belief_array[j]))
+                                     * influence_graph[k][j]
+                                     * (belief_array[k] - belief_array[j])for j in a_i) 
+
+                        minUpdate += belief_array[j] + (1 / len(a_j)) * sum(
+                                     (1 - np.abs(belief_array[k] - belief_array[j]))
+                                     * influence_graph[k][j]
+                                     *(belief_array[k] - belief_array[j]) for j in a_i
+                        )
+                    else: 
+                        minUpdate += -0.25 * influence_graph[k][j]
+                        maxUpdate += 0.25 * influence_graph[k][j]
+            results.append((minUpdate, maxUpdate))
+
+        return results
 
 
 class InfluenceGraphs:
@@ -366,7 +397,7 @@ class InitialConfigurations:
 
         return [
             [B(i) for i in range(num_agents)],
-            [1 - B(i) for i in range(num_agents)],
+           [1 - B(i) for i in range(num_agents)],
         ]
 
     @staticmethod
@@ -488,13 +519,13 @@ class UpdateFunctions:
     
     @staticmethod
     def byzantine_classic(
-        belief_state: list[list[float]], influence_graph: list[list[float]], byzantine_index: int, p: float):
+        belief_state: list[list[float]], influence_graph: list[list[float]], byzantine_index: int, p: float, delta: float = 0.0):
 
             def deceive(j, belief_array, belief_score):
                 if j == byzantine_index:
-                    if(belief_score < p):
+                    if(belief_score < (p - delta)):
                         return 1
-                    elif(belief_score > p):
+                    elif(belief_score > (p + delta)):
                         return 0
                     else: 
                         return p
@@ -545,3 +576,31 @@ class UpdateFunctions:
             [next_b(i, belief_array) for i in range(len(belief_array))]
             for belief_array in belief_state
         ]
+    
+    @staticmethod
+    def byzantine_confirmation_bias(
+        belief_state: list[list[float]], influence_graph: list[list[float]], byzantine_index: int, p: float, delta: float = 0.0):
+                def deceive(j, belief_array, belief_score):
+                    if j == byzantine_index:
+                        if(belief_score < (p - delta)):
+                            return 1
+                        elif(belief_score > (p + delta)):
+                            return 0
+                        else: 
+                            return p
+                    return belief_array[j]
+                
+                def next_b(i, belief_array):
+                    a_i = [
+                        j for j in range(len(influence_graph[i])) if influence_graph[j][i] > 0
+                    ]
+                    return belief_array[i] + (1/len(a_i)) * sum(
+                        (1-np.abs(deceive(j, belief_array, belief_array[i]) - belief_array[i]))
+                        * influence_graph[j][i]
+                        * (deceive(j, belief_array, belief_array[i]) - belief_array[i])
+                        for j in a_i
+                    )
+                return [
+                    [next_b(i, belief_array) for i in range(len(belief_array))]
+                    for belief_array in belief_state
+                ]
