@@ -1,6 +1,8 @@
 from typing import Callable
 
 import numpy as np
+import random
+import math
 
 
 class AKV:
@@ -155,27 +157,26 @@ class AKV:
         results = []
 
         for i in range(n):
-            minUpdate = 0
-            maxUpdate = 0
             a_i = [j for j in range(len(influence_graph)) if influence_graph[j][i] > 0]
             for j in a_i:
                 a_j = [k for k in range(len(influence_graph)) if influence_graph[k][j] > 0]
-                for k in a_j:
-                    if influence_graph[k][i] > 0:
-                        minUpdate += belief_array[j] + (1 / len(a_j)) * sum(
-                                     (1 - np.abs(belief_array[k] - belief_array[j]))
-                                     * influence_graph[k][j]
-                                     * (belief_array[k] - belief_array[j])for j in a_i) 
 
-                        minUpdate += belief_array[j] + (1 / len(a_j)) * sum(
-                                     (1 - np.abs(belief_array[k] - belief_array[j]))
-                                     * influence_graph[k][j]
-                                     *(belief_array[k] - belief_array[j]) for j in a_i
-                        )
+                known = 0.0
+                lo = 0.0
+                hi = 0.0
+
+                for k in a_j:
+                    weight = influence_graph[k][j]
+                    if influence_graph[k][i] > 0:
+                        diff = belief_array[k] - belief_array[j]
+                        known += (1 - abs(diff)) * weight * diff
                     else: 
-                        minUpdate += -0.25 * influence_graph[k][j]
-                        maxUpdate += 0.25 * influence_graph[k][j]
-            results.append((minUpdate, maxUpdate))
+                        lo += -0.25 * weight
+                        hi += 0.25 * weight
+                base = belief_array[j] + known / len(a_j)
+                minUpdate = base + lo / len(a_j)
+                maxUpdate = base + hi / len(a_j)
+                results.append((i,j, float(round(minUpdate, 3)), float(round(maxUpdate, 3))))
 
         return results
 
@@ -378,6 +379,31 @@ class InfluenceGraphs:
 class InitialConfigurations:
     """Catalog of initial belief configurations in the literature."""
 
+    @staticmethod
+    def extreme_agents(num_agents: int) -> list[list[float]]:
+        """Creates an extreme belief configuration with domain of size 2
+
+        This belief configuration represents a set of agents whose beliefs are 0 or 1,
+        except for one agent whose belief is a random float in the interval $[0, 1]$
+
+        Args:
+            num_agents (int): Number of agents.
+
+        Returns:
+            list[float[float]]: Belief state for initial configuration.
+        """
+
+        non_zero_agent = math.floor(num_agents / 2)
+        beliefs = [0.0] * num_agents
+
+        beliefs[non_zero_agent] = 0.5
+
+
+        return [
+            beliefs,
+            [1 - b for b in beliefs]
+        ]
+        
     @staticmethod
     def uniform(num_agents: int) -> list[list[float]]:
         """Creates a uniform belief configuration with domain of size 2.
